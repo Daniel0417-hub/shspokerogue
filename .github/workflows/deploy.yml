@@ -32,6 +32,12 @@ jobs:
           submodules: recursive
           fetch-depth: 1
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+          run_install: false
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -39,11 +45,8 @@ jobs:
           cache: pnpm
           cache-dependency-path: pokerogue/pnpm-lock.yaml
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.34.5
-          run_install: false
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
 
       - name: Configure GitHub Pages base path
         working-directory: pokerogue
