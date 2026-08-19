@@ -45,12 +45,26 @@ replace_once(
     'import { globalScene } from "#app/global-scene";\nimport type { GeneralSettingsKey, SettingsUiItem }',
     'import type { GeneralSettingsKey, SettingsUiItem }'
 )
+
 replace_once(
     'src/ui/settings/general-settings-ui-handler.ts',
     '  protected override handleSaveSetting<V = any>(uiItem: SettingsUiItem<GeneralSettingsKey>, newValue: V): void {\n',
-    '''  protected override handleSaveSetting<V = any>(uiItem: SettingsUiItem<GeneralSettingsKey>, newValue: V): void {
+    '''  public override show(args: any[]): boolean {
+    const ret = super.show(args);
+    const cheatKeys = ["__cheat_dex", "__cheat_ability", "__cheat_passive", "__cheat_egg_moves", "__cheat_nature"];
+    cheatKeys.forEach((key, i) => {
+      const row = this.uiItems.findIndex(item => String(item.key) === key);
+      if (row >= 0) {
+        this.setOptionCursor(row, localStorage.getItem(`pokerogue_${key}`) === "1" ? 1 : 0);
+      }
+    });
+    return ret;
+  }
+
+  protected override handleSaveSetting<V = any>(uiItem: SettingsUiItem<GeneralSettingsKey>, newValue: V): void {
     const cheatKey = String(uiItem.key);
     if (cheatKey.startsWith("__cheat_")) {
+      localStorage.setItem(`pokerogue_${cheatKey}`, newValue === true ? "1" : "0");
       if (newValue === true) {
         this.applyLocalCheat(cheatKey);
       }
@@ -58,6 +72,7 @@ replace_once(
     }
 '''
 )
+
 replace_once(
     'src/ui/settings/general-settings-ui-handler.ts',
     '  private updateMoveTouchControlsSettingsLabel(): void {\n',
