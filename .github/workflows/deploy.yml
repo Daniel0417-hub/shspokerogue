@@ -18,6 +18,7 @@ concurrency:
 
 env:
   NODE_VERSION: 24
+  VITE_BYPASS_LOGIN: '1'
 
 jobs:
   build:
@@ -68,8 +69,10 @@ jobs:
         working-directory: pokerogue
         run: pnpm install --frozen-lockfile
 
-      - name: Build
+      - name: Build in local-save mode
         working-directory: pokerogue
+        env:
+          VITE_BYPASS_LOGIN: ${{ env.VITE_BYPASS_LOGIN }}
         run: pnpm build
 
       - name: Upload Pages artifact
