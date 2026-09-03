@@ -93,11 +93,43 @@ replace_once(
 
 # If a duplicate SelectStarterPhase was already queued, the first real starter
 # phase removes it. Only the current phase continues, so the same UI handler
-# cannot be driven by two starter phases in sequence.
+# cannot be driven by two starter phases in sequence. The Cheat Mode activation
+# is done here as well because this is the first phase of the new run.
 replace_once(
     'src/phases/select-starter-phase.ts',
     '''  start() {
     super.start();
+
+    audioManager.playBgm("menu");''',
+    '''  start() {
+    super.start();
+
+    // There should only ever be one starter-selection phase in a new run.
+    // Remove any stale duplicate left in the phase queue before showing the UI.
+    globalScene.phaseManager.removeAllPhasesOfType("SelectStarterPhase");
+
+    if (localStorage.getItem("pokerogue_cheat_mode") === "1") {
+      this.activateCheatMode();
+    }
+
+    audioManager.playBgm("menu");'''
+)
+
+# This marker is intentionally a no-op. Cheat activation is already included in
+# the SelectStarterPhase start patch above; keeping the check here makes the
+# patch idempotent if this script is rerun against an already patched tree.
+replace_once(
+    'src/phases/select-starter-phase.ts',
+    '''  start() {
+    super.start();
+
+    // There should only ever be one starter-selection phase in a new run.
+    // Remove any stale duplicate left in the phase queue before showing the UI.
+    globalScene.phaseManager.removeAllPhasesOfType("SelectStarterPhase");
+
+    if (localStorage.getItem("pokerogue_cheat_mode") === "1") {
+      this.activateCheatMode();
+    }
 
     audioManager.playBgm("menu");''',
     '''  start() {
@@ -180,22 +212,6 @@ replace_once(
 # When Cheat Mode enters starter selection, unlock the full local collection:
 # all species in the Dex, all abilities, all four egg-move slots, passive, and
 # every Nature. The current upstream Dex nature mask uses bigint values.
-replace_once(
-    'src/phases/select-starter-phase.ts',
-    '''  start() {
-    super.start();
-
-    audioManager.playBgm("menu");''',
-    '''  start() {
-    super.start();
-
-    if (localStorage.getItem("pokerogue_cheat_mode") === "1") {
-      this.activateCheatMode();
-    }
-
-    audioManager.playBgm("menu");'''
-)
-
 replace_once(
     'src/phases/select-starter-phase.ts',
     '''  /**
