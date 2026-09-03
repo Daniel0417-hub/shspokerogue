@@ -25,6 +25,8 @@ replace_once(
             this.gameMode = gameMode;'''
 )
 
+# A normal new game must first reload the real system save. This discards the
+# in-memory cheat unlocks without writing them to the user's normal save.
 replace_once(
     'src/phases/title-phase.ts',
     '''          options.push({
@@ -37,7 +39,11 @@ replace_once(
     '''          options.push({
             label: GameMode.getModeName(GameModes.CLASSIC),
             handler: () => {
-              setModeAndEnd(GameModes.CLASSIC);
+              localStorage.setItem("pokerogue_cheat_mode", "0");
+              globalScene.ui.setMode(UiMode.MESSAGE);
+              void globalScene.gameData.loadSystem().then(() => {
+                setModeAndEnd(GameModes.CLASSIC);
+              });
               return true;
             },
           });
@@ -48,6 +54,21 @@ replace_once(
               return true;
             },
           });'''
+)
+
+# Prevent every later saveSystem() call during a Cheat Mode run from writing
+# the temporary unlocked collection into the normal local system save.
+replace_once(
+    'src/system/game-data.ts',
+    '''  public async saveSystem(): Promise<boolean> {
+    const data = this.getSystemSaveData();''',
+    '''  public async saveSystem(): Promise<boolean> {
+    if (localStorage.getItem("pokerogue_cheat_mode") === "1") {
+      globalScene.ui.savingIcon.hide();
+      return true;
+    }
+
+    const data = this.getSystemSaveData();'''
 )
 
 # When Cheat Mode enters starter selection, unlock the full local collection:
@@ -116,8 +137,6 @@ replace_once(
         starter.eggMoves |= 0b1111;
       }
     }
-
-    void gameData.saveSystem();
   }
 
   /**
