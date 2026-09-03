@@ -70,6 +70,24 @@ replace_once(
     '          if (true) {'
 )
 
+# If the starter-select screen is cancelled before a team is submitted,
+# return directly to the title screen instead of entering the save-slot flow.
+# Also clear the Cheat Mode flag so leaving the screen cannot affect later runs.
+replace_once(
+    'src/phases/select-starter-phase.ts',
+    '''    globalScene.ui.setMode(UiMode.STARTER_SELECT, (starters: Starter[]) => {
+      globalScene.ui.clearText();''',
+    '''    globalScene.ui.setMode(UiMode.STARTER_SELECT, (starters: Starter[]) => {
+      // An empty starter list is the cancel/back-out path from starter select.
+      if (!starters || starters.length === 0) {
+        localStorage.setItem("pokerogue_cheat_mode", "0");
+        globalScene.phaseManager.toTitleScreen();
+        this.end();
+        return;
+      }
+      globalScene.ui.clearText();'''
+)
+
 # Prevent every later saveSystem() call during a Cheat Mode run from writing
 # the temporary unlocked collection into the normal local system save.
 replace_once(
@@ -87,17 +105,7 @@ replace_once(
 
 # When Cheat Mode enters starter selection, unlock the full local collection:
 # all species in the Dex, all abilities, all four egg-move slots, passive, and
-# every Nature. Dex attributes are bigint in the upstream source.
-replace_once(
-    'src/phases/select-starter-phase.ts',
-    'import { ChallengeType } from "#enums/challenge-type";\n',
-    '''import { ChallengeType } from "#enums/challenge-type";
-import { AbilityAttr } from "#enums/ability-attr";
-import { DexAttr } from "#enums/dex-attr";
-import { Nature } from "#enums/nature";
-'''
-)
-
+# every Nature. The current upstream Dex nature mask uses bigint values.
 replace_once(
     'src/phases/select-starter-phase.ts',
     '''  start() {
@@ -131,7 +139,10 @@ replace_once(
       | DexAttr.VARIANT_2
       | DexAttr.VARIANT_3
       | DexAttr.DEFAULT_FORM;
-    const allNatureAttrs = (2 ** Object.values(Nature).filter(value => typeof value === "number").length) - 1;
+    let allNatureAttrs = 0n;
+    for (let i = 0; i < 25; i++) {
+      allNatureAttrs |= 1n << BigInt(i);
+    }
 
     for (const species of speciesDataRegistry.getAllSpecies()) {
       const dex = gameData.dexData[species.speciesId];
