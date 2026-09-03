@@ -2,87 +2,91 @@ from pathlib import Path
 
 ROOT = Path('pokerogue')
 
+
 def replace_once(path: str, old: str, new: str):
     p = ROOT / path
     s = p.read_text()
     if new in s:
         return
     if old not in s:
-        raise RuntimeError(f'Patch anchor not found: {path}: {old[:120]!r}')
+        raise RuntimeError(f'Patch anchor not found: {path}: {old[:160]!r}')
     p.write_text(s.replace(old, new, 1))
 
-replace_once(
-    'src/ui/settings/settings-ui-items.ts',
-    '  {\n    key: "preferBatonPass",\n    label: t("settings:preferBatonPass"),\n    options: useOnOffOptions(),\n  },\n];',
-    '''  {
-    key: "preferBatonPass",
-    label: t("settings:preferBatonPass"),
-    options: useOnOffOptions(),
-  },
-];
 
-(generalSettingsUiItems as SettingsUiItem[]).push(
-  { key: "__cheat_dex" as GeneralSettingsKey, label: "치트: 도감 등록", options: useOnOffOptions() },
-  { key: "__cheat_ability" as GeneralSettingsKey, label: "치트: 특성", options: useOnOffOptions() },
-  { key: "__cheat_passive" as GeneralSettingsKey, label: "치트: 패시브", options: useOnOffOptions() },
-  { key: "__cheat_egg_moves" as GeneralSettingsKey, label: "치트: 알 기술", options: useOnOffOptions() },
-  { key: "__cheat_nature" as GeneralSettingsKey, label: "치트: 성격", options: useOnOffOptions() },
-);'''
+# Add a dedicated Cheat Mode to the New Game menu. Cheat Mode is still a
+# Classic run internally; the local flag is consumed only by SelectStarterPhase.
+replace_once(
+    'src/phases/title-phase.ts',
+    '        handler: () => {\n          const setModeAndEnd = (gameMode: GameModes) => {\n            this.gameMode = gameMode;',
+    '''        handler: () => {
+          localStorage.setItem("pokerogue_cheat_mode", "0");
+          const setModeAndEnd = (gameMode: GameModes, cheatMode = false) => {
+            localStorage.setItem("pokerogue_cheat_mode", cheatMode ? "1" : "0");
+            this.gameMode = gameMode;'''
 )
 
 replace_once(
-    'src/ui/settings/general-settings-ui-handler.ts',
-    'import { eventBus } from "#app/event-bus";\n',
-    '''import { eventBus } from "#app/event-bus";
-import { globalScene } from "#app/global-scene";
+    'src/phases/title-phase.ts',
+    '''          options.push({
+            label: GameMode.getModeName(GameModes.CLASSIC),
+            handler: () => {
+              setModeAndEnd(GameModes.CLASSIC);
+              return true;
+            },
+          });''',
+    '''          options.push({
+            label: GameMode.getModeName(GameModes.CLASSIC),
+            handler: () => {
+              setModeAndEnd(GameModes.CLASSIC);
+              return true;
+            },
+          });
+          options.push({
+            label: "치트 모드 (클래식)",
+            handler: () => {
+              setModeAndEnd(GameModes.CLASSIC, true);
+              return true;
+            },
+          });'''
+)
+
+# When Cheat Mode enters starter selection, unlock the full local collection:
+# all species in the Dex, all abilities, all four egg-move slots, passive, and
+# every Nature. Dex attributes are bigint in the upstream source.
+replace_once(
+    'src/phases/select-starter-phase.ts',
+    'import { ChallengeType } from "#enums/challenge-type";\n',
+    '''import { ChallengeType } from "#enums/challenge-type";
 import { AbilityAttr } from "#enums/ability-attr";
 import { DexAttr } from "#enums/dex-attr";
 import { Nature } from "#enums/nature";
 '''
 )
+
 replace_once(
-    'src/ui/settings/general-settings-ui-handler.ts',
-    'import { globalScene } from "#app/global-scene";\nimport type { GeneralSettingsKey, SettingsUiItem }',
-    'import type { GeneralSettingsKey, SettingsUiItem }'
+    'src/phases/select-starter-phase.ts',
+    '''  start() {
+    super.start();
+
+    audioManager.playBgm("menu");''',
+    '''  start() {
+    super.start();
+
+    if (localStorage.getItem("pokerogue_cheat_mode") === "1") {
+      this.activateCheatMode();
+    }
+
+    audioManager.playBgm("menu");'''
 )
 
 replace_once(
-    'src/ui/settings/general-settings-ui-handler.ts',
-    '  protected override handleSaveSetting<V = any>(uiItem: SettingsUiItem<GeneralSettingsKey>, newValue: V): void {\n',
-    '''  public override show(args: any[]): boolean {
-    const ret = super.show(args);
-    const cheatKeys = ["__cheat_dex", "__cheat_ability", "__cheat_passive", "__cheat_egg_moves", "__cheat_nature"];
-    cheatKeys.forEach((key, i) => {
-      const row = this.uiItems.findIndex(item => String(item.key) === key);
-      if (row >= 0) {
-        this.setOptionCursor(row, localStorage.getItem(`pokerogue_${key}`) === "1" ? 1 : 0);
-      }
-    });
-    return ret;
-  }
-
-  protected override handleSaveSetting<V = any>(uiItem: SettingsUiItem<GeneralSettingsKey>, newValue: V): void {
-    const cheatKey = String(uiItem.key);
-    if (cheatKey.startsWith("__cheat_")) {
-      localStorage.setItem(`pokerogue_${cheatKey}`, newValue === true ? "1" : "0");
-      if (newValue === true) {
-        this.applyLocalCheat(cheatKey);
-      }
-      return;
-    }
-'''
-)
-
-replace_once(
-    'src/ui/settings/general-settings-ui-handler.ts',
-    '  private updateMoveTouchControlsSettingsLabel(): void {\n',
-    '''  private applyLocalCheat(key: string): void {
-    const gameData = globalScene.gameData;
-    if (!gameData) {
-      return;
-    }
-
-    const speciesIds = Object.keys(gameData.starterData).map(Number);
+    'src/phases/select-starter-phase.ts',
+    '''  /**
+   * Initialize starters before starting the first battle
+   * @param starters - Array of {@linkcode Starter}s with which to start the battle
+   */''',
+    '''  private activateCheatMode(): void {
+    const { gameData } = globalScene;
     const allDexAttrs =
       DexAttr.NON_SHINY
       | DexAttr.SHINY
@@ -92,32 +96,23 @@ replace_once(
       | DexAttr.VARIANT_2
       | DexAttr.VARIANT_3
       | DexAttr.DEFAULT_FORM;
-    const natureCount = Object.values(Nature).filter(value => typeof value === "number").length;
-    const allNatureAttrs = (2 ** natureCount) - 1;
+    const allNatureAttrs = (2 ** Object.values(Nature).filter(value => typeof value === "number").length) - 1;
 
-    for (const speciesId of speciesIds) {
-      const dex = gameData.dexData[speciesId];
-      const starter = gameData.starterData[speciesId];
+    for (const species of speciesDataRegistry.getAllSpecies()) {
+      const dex = gameData.dexData[species.speciesId];
+      const starter = gameData.starterData[species.speciesId];
 
-      if (key === "__cheat_dex" && dex) {
+      if (dex) {
         dex.seenAttr |= allDexAttrs;
         dex.caughtAttr |= allDexAttrs;
+        dex.natureAttr = allNatureAttrs;
         dex.seenCount = Math.max(dex.seenCount, 1);
         dex.caughtCount = Math.max(dex.caughtCount, 1);
       }
-      if (key === "__cheat_nature" && dex) {
-        dex.natureAttr |= allNatureAttrs;
-      }
-      if (!starter) {
-        continue;
-      }
-      if (key === "__cheat_ability") {
+
+      if (starter) {
         starter.abilityAttr |= AbilityAttr.ABILITY_1 | AbilityAttr.ABILITY_2 | AbilityAttr.ABILITY_HIDDEN;
-      }
-      if (key === "__cheat_passive") {
         starter.passiveAttr |= 1;
-      }
-      if (key === "__cheat_egg_moves") {
         starter.eggMoves |= 0b1111;
       }
     }
@@ -125,6 +120,8 @@ replace_once(
     void gameData.saveSystem();
   }
 
-  private updateMoveTouchControlsSettingsLabel(): void {
-'''
+  /**
+   * Initialize starters before starting the first battle
+   * @param starters - Array of {@linkcode Starter}s with which to start the battle
+   */'''
 )
