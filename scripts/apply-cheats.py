@@ -31,8 +31,6 @@ replace_once(
             if (cheatMode) {
               finish();
             } else {
-              // Reload the persisted system save so temporary Cheat Mode
-              // unlocks are removed from memory before a normal run starts.
               globalScene.ui.setMode(UiMode.MESSAGE);
               void globalScene.gameData.loadSystem().then(finish);
             }'''
@@ -45,11 +43,7 @@ replace_once(
     '''          options.push({
             label: GameMode.getModeName(GameModes.CLASSIC),
             handler: () => {
-              localStorage.setItem("pokerogue_cheat_mode", "0");
-              globalScene.ui.setMode(UiMode.MESSAGE);
-              void globalScene.gameData.loadSystem().then(() => {
-                setModeAndEnd(GameModes.CLASSIC);
-              });
+              setModeAndEnd(GameModes.CLASSIC);
               return true;
             },
           });''',
