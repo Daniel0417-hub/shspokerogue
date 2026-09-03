@@ -38,6 +38,8 @@ replace_once(
             }'''
 )
 
+# Always expose Challenge and Endless, without requiring the normal Classic
+# victory/unlock flag. Keep the normal Classic option and add Cheat Mode beside it.
 replace_once(
     'src/phases/title-phase.ts',
     '''          options.push({
@@ -57,7 +59,21 @@ replace_once(
               setModeAndEnd(GameModes.CLASSIC);
               return true;
             },
+          });
+          options.push({
+            label: "치트 모드 (클래식)",
+            handler: () => {
+              setModeAndEnd(GameModes.CLASSIC, true);
+              return true;
+            },
           });'''
+)
+
+# Remove the Classic-victory gate for Challenge/Endless in the New Game menu.
+replace_once(
+    'src/phases/title-phase.ts',
+    '          if (gameData.isUnlocked(Unlockables.ENDLESS_MODE)) {',
+    '          if (true) {'
 )
 
 # Prevent every later saveSystem() call during a Cheat Mode run from writing
