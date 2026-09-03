@@ -22,20 +22,24 @@ replace_once(
           localStorage.setItem("pokerogue_cheat_mode", "0");
           const setModeAndEnd = (gameMode: GameModes, cheatMode = false) => {
             localStorage.setItem("pokerogue_cheat_mode", cheatMode ? "1" : "0");
-            this.gameMode = gameMode;'''
+            this.gameMode = gameMode;
+            const finish = () => {
+              globalScene.ui.setMode(UiMode.MESSAGE);
+              globalScene.ui.clearText();
+              this.end();
+            };
+            if (cheatMode) {
+              finish();
+            } else {
+              // Reload the persisted system save so temporary Cheat Mode
+              // unlocks are removed from memory before a normal run starts.
+              globalScene.ui.setMode(UiMode.MESSAGE);
+              void globalScene.gameData.loadSystem().then(finish);
+            }'''
 )
 
-# A normal new game must first reload the real system save. This discards the
-# in-memory cheat unlocks without writing them to the user's normal save.
 replace_once(
     'src/phases/title-phase.ts',
-    '''          options.push({
-            label: GameMode.getModeName(GameModes.CLASSIC),
-            handler: () => {
-              setModeAndEnd(GameModes.CLASSIC);
-              return true;
-            },
-          });''',
     '''          options.push({
             label: GameMode.getModeName(GameModes.CLASSIC),
             handler: () => {
@@ -46,11 +50,11 @@ replace_once(
               });
               return true;
             },
-          });
-          options.push({
-            label: "치트 모드 (클래식)",
+          });''',
+    '''          options.push({
+            label: GameMode.getModeName(GameModes.CLASSIC),
             handler: () => {
-              setModeAndEnd(GameModes.CLASSIC, true);
+              setModeAndEnd(GameModes.CLASSIC);
               return true;
             },
           });'''
