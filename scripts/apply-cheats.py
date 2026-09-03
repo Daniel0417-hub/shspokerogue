@@ -103,6 +103,14 @@ replace_once(
     const data = this.getSystemSaveData();'''
 )
 
+# Import the enum objects used by the injected runtime code. These are not
+# globals in the upstream module and must be imported explicitly.
+replace_once(
+    'src/phases/select-starter-phase.ts',
+    'import { ChallengeType } from "#enums/challenge-type";\n',
+    'import { AbilityAttr } from "#enums/ability-attr";\nimport { ChallengeType } from "#enums/challenge-type";\nimport { DexAttr } from "#enums/dex-attr";\n'
+)
+
 # When Cheat Mode enters starter selection, unlock the full local collection:
 # all species in the Dex, all abilities, all four egg-move slots, passive, and
 # every Nature. The current upstream Dex nature mask uses bigint values.
