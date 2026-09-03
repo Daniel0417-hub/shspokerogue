@@ -76,6 +76,66 @@ replace_once(
     '          if (true) {'
 )
 
+# TitlePhase is a transition boundary. If a duplicated input event or another
+# stale callback reaches end() twice, discard phases queued by the previous
+# invocation before constructing the one authoritative next sequence.
+replace_once(
+    'src/phases/title-phase.ts',
+    '''  end(): void {
+    if (!this.loaded && !globalScene.gameMode.isDaily) {''',
+    '''  end(): void {
+    // Starting a run must have exactly one next-phase sequence. This also
+    // neutralizes a duplicate ENTER/SPACE-style input reaching end() twice.
+    globalScene.phaseManager.clearPhaseQueue();
+
+    if (!this.loaded && !globalScene.gameMode.isDaily) {'''
+)
+
+# If a duplicate SelectStarterPhase was already queued, the first real starter
+# phase removes it. Only the current phase continues, so the same UI handler
+# cannot be driven by two starter phases in sequence.
+replace_once(
+    'src/phases/select-starter-phase.ts',
+    '''  start() {
+    super.start();
+
+    audioManager.playBgm("menu");''',
+    '''  start() {
+    super.start();
+
+    // There should only ever be one starter-selection phase in a new run.
+    // Remove any stale duplicate left in the phase queue before showing the UI.
+    globalScene.phaseManager.removeAllPhasesOfType("SelectStarterPhase");
+
+    if (localStorage.getItem("pokerogue_cheat_mode") === "1") {
+      this.activateCheatMode();
+    }
+
+    audioManager.playBgm("menu");'''
+)
+
+# If the same UI handler is reused by a stale/duplicate phase, never carry the
+# previous phase's selected Pokemon into the new starter-selection window.
+replace_once(
+    'src/ui/handlers/starter-select-ui-handler.ts',
+    '''    if (args.length > 0 && args[0] instanceof Function) {
+      super.show(args);
+      this.starterSelectCallback = args[0] as StarterSelectCallback;''',
+    '''    if (args.length > 0 && args[0] instanceof Function) {
+      super.show(args);
+
+      // A new SelectStarterPhase must begin with a fresh team. This is
+      // defensive against stale/duplicate phase instances sharing this UI
+      // handler singleton.
+      this.partyStarters.length = 0;
+      this.partyStarterIds.length = 0;
+      this.starterCursorObjs?.forEach(cursor => cursor.setVisible(false));
+      this.partyCursorObj?.setVisible(false);
+      this.startCursorObj?.setVisible(false);
+
+      this.starterSelectCallback = args[0] as StarterSelectCallback;'''
+)
+
 # If the starter-select screen is cancelled before a team is submitted,
 # return directly to the title screen instead of entering the save-slot flow.
 # Also clear the Cheat Mode flag so leaving the screen cannot affect later runs.
