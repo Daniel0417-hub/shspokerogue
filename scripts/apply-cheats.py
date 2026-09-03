@@ -21,6 +21,12 @@ replace_once(
     '''        handler: () => {
           localStorage.setItem("pokerogue_cheat_mode", "0");
           const setModeAndEnd = (gameMode: GameModes, cheatMode = false) => {
+            // A key/button event can reach this handler more than once.  Once
+            // the mode is chosen, make TitlePhase.end() strictly one-shot so
+            // duplicate SelectStarter/Encounter phases cannot be queued.
+            if (this.gameMode != null) {
+              return;
+            }
             localStorage.setItem("pokerogue_cheat_mode", cheatMode ? "1" : "0");
             this.gameMode = gameMode;
             const finish = () => {
