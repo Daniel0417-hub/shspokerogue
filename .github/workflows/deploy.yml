@@ -68,6 +68,38 @@ jobs:
       - name: Apply local cheat settings patch
         run: python3 scripts/apply-cheats.py
 
+      - name: Correct Cheat Mode runtime patch
+        working-directory: pokerogue
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/phases/title-phase.ts')
+          s = p.read_text()
+          s = s.replace(
+              '''    // Starting a run must have exactly one next-phase sequence. This also
+          // neutralizes a duplicate ENTER/SPACE-style input reaching end() twice.
+          globalScene.phaseManager.clearPhaseQueue();
+
+          ''',
+              ''
+          )
+          p.write_text(s)
+
+          p = Path('src/phases/select-starter-phase.ts')
+          s = p.read_text()
+          s = s.replace(
+              '''    let allNatureAttrs = 0n;
+          for (let i = 0; i < 25; i++) {
+            allNatureAttrs |= 1n << BigInt(i);
+          }''',
+              '''    let allNatureAttrs = 0;
+          for (let i = 0; i < 25; i++) {
+            allNatureAttrs |= 1 << (i + 1);
+          }'''
+          )
+          p.write_text(s)
+          PY
+
       - name: Install dependencies
         working-directory: pokerogue
         run: pnpm install --frozen-lockfile
